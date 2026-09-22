@@ -1,0 +1,32 @@
+# ghost-server: the Ghost API for one Postgres cluster (see internal/server).
+#
+#   docker build -f Dockerfile.server -t ghost-server .
+#
+# The binary is static, so the final image is Alpine with nothing added. It
+# runs as an unprivileged user and reads GHOST_SERVER_* from the environment;
+# internal/server/config.go lists them.
+ARG GO_VERSION=1.26
+
+FROM --platform=${BUILDPLATFORM} golang:${GO_VERSION} AS builder
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /src
+RUN --mount=type=bind,source=go.sum,target=go.sum \
+    --mount=type=bind,source=go.mod,target=go.mod \
+    --mount=type=cache,target=/go/pkg/mod \
+    go mod download -x
+RUN --mount=type=bind,target=. \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -o /bin/ghost-server ./cmd/ghost-server
+
+FROM alpine:3.23
+RUN addgroup -g 1000 ghost && adduser -u 1000 -G ghost -D ghost
+USER ghost
+COPY --from=builder /bin/ghost-server /usr/local/bin/ghost-server
+# The binary's own default is loopback, which inside a container means the
+# published port answers nothing. Listen on every interface here; it is the
+# port mapping that decides what reaches it.
+ENV GHOST_SERVER_LISTEN=0.0.0.0:8787
+EXPOSE 8787
+ENTRYPOINT ["ghost-server"]

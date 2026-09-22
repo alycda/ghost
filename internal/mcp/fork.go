@@ -52,12 +52,14 @@ func newForkTool() *mcp.Tool {
 		Title: "Fork Database",
 		Description: `Fork an existing database to create a new independent copy.
 
-Note: forked databases may take a few minutes to start up. Use ghost_list to check the current status.`,
+Note: forked databases may take a few minutes to start up. Use ghost_list to check the current status.
+
+Against a self-hosted ghost-server, forking ends every open session on the source database for the duration of the copy.`,
 		InputSchema:  ForkInput{}.Schema(),
 		OutputSchema: ForkOutput{}.Schema(),
 		Annotations: &mcp.ToolAnnotations{
 			ReadOnlyHint:    false,
-			DestructiveHint: new(false),
+			DestructiveHint: new(true),
 			IdempotentHint:  false,
 			OpenWorldHint:   new(false),
 			Title:           "Fork Database",

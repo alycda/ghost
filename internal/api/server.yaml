@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/HEAD/configuration-schema.json
+# The server side of the same contract client.yaml is generated from. It lives
+# in this package so a server implements StrictServerInterface with the very
+# types the client decodes into; internal/server is that implementation.
+package: api
+output: server.go
+generate:
+  std-http-server: true
+  strict-server: true
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms
+compatibility:
+  always-prefix-enum-values: true
