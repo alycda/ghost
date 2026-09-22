@@ -24,5 +24,9 @@ FROM alpine:3.23
 RUN addgroup -g 1000 ghost && adduser -u 1000 -G ghost -D ghost
 USER ghost
 COPY --from=builder /bin/ghost-server /usr/local/bin/ghost-server
+# The binary's own default is loopback, which inside a container means the
+# published port answers nothing. Listen on every interface here; it is the
+# port mapping that decides what reaches it.
+ENV GHOST_SERVER_LISTEN=0.0.0.0:8787
 EXPOSE 8787
 ENTRYPOINT ["ghost-server"]

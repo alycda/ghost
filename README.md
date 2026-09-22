@@ -121,7 +121,9 @@ ghost-server
 The cluster must have TLS on (the CLI connects with `sslmode=require`). The
 server tells clients to connect to `GHOST_SERVER_PUBLIC_HOST:PORT`
 (default `127.0.0.1:5432`), which is where they reach Postgres from - the
-client end of an ssh tunnel, say. `Dockerfile.server` builds an image.
+client end of an ssh tunnel, say. It listens on `GHOST_SERVER_LISTEN`
+(default `127.0.0.1:8787`; the image sets `0.0.0.0:8787`). Every setting is
+listed in `internal/server/config.go`. `Dockerfile.server` builds an image.
 
 ## MCP
 
