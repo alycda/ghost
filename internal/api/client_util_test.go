@@ -17,9 +17,9 @@ func TestDatabaseWithUsageRoundTrip(t *testing.T) {
 	if got := in.WithUsage(nil).Database(); !reflect.DeepEqual(got, in) {
 		t.Fatalf("round trip lost fields:\n got %+v\nwant %+v", got, in)
 	}
-	for i := 0; i < reflect.TypeOf(in).NumField(); i++ {
+	for i := 0; i < reflect.TypeFor[Database]().NumField(); i++ {
 		if f := reflect.ValueOf(in).Field(i); f.IsZero() {
-			t.Errorf("test fixture leaves %s zero, so the round trip cannot prove it survives", reflect.TypeOf(in).Field(i).Name)
+			t.Errorf("test fixture leaves %s zero, so the round trip cannot prove it survives", reflect.TypeFor[Database]().Field(i).Name)
 		}
 	}
 }

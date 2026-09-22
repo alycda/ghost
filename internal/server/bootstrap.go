@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS ghost.settings (
 		return fmt.Errorf("reading shared_preload_libraries: %w", err)
 	}
 	preloaded := false
-	for _, lib := range strings.Split(preload, ",") {
+	for lib := range strings.SplitSeq(preload, ",") {
 		if strings.TrimSpace(lib) == "timescaledb" {
 			preloaded = true
 		}
