@@ -228,6 +228,10 @@ func TestLifecycle(t *testing.T) {
 		if err != nil || clash.StatusCode() != 409 {
 			t.Fatalf("rename onto existing name: %v %d", err, clash.StatusCode())
 		}
+		idLike, err := client.RenameDatabaseWithResponse(ctx, "local", gammaName, api.RenameDatabaseRequest{Name: alpha.ID})
+		if err != nil || idLike.StatusCode() != 400 {
+			t.Fatalf("rename into the ID namespace: %v %d", err, idLike.StatusCode())
+		}
 	})
 
 	t.Run("password change reaches the role", func(t *testing.T) {

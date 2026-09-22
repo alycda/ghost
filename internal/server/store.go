@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -11,6 +12,9 @@ import (
 
 	"github.com/timescale/ghost/internal/api"
 )
+
+// idPrefix starts every database ID; names may not.
+const idPrefix = "db_"
 
 // record is one row of ghost.databases joined with what Postgres knows about
 // the database behind it.
@@ -41,8 +45,10 @@ func (s *Server) resolve(ctx context.Context, spaceID, ref string) (record, erro
 	if spaceID != s.cfg.SpaceID {
 		return record{}, notFound("space %q not found", spaceID)
 	}
+	// A ref is an ID or a name. IDs win, and validName keeps names out of
+	// the ID namespace, so the two cannot collide in the first place.
 	r, err := scanRecord(s.pool.QueryRow(ctx,
-		`SELECT `+recordColumns+` WHERE d.id = $1 OR d.name = $1`, ref))
+		`SELECT `+recordColumns+` WHERE d.id = $1 OR d.name = $1 ORDER BY d.id = $1 DESC LIMIT 1`, ref))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return record{}, notFound("database %q not found", ref)
 	}
@@ -83,11 +89,14 @@ func (s *Server) create(ctx context.Context, name string, template *record) (rec
 			return record{}, err
 		}
 	}
+	if err := validName(name); err != nil {
+		return record{}, err
+	}
 	suffix, err := randomString(12)
 	if err != nil {
 		return record{}, err
 	}
-	id := "db_" + suffix
+	id := idPrefix + suffix
 
 	var forkedFrom *string
 	if template != nil {
@@ -196,9 +205,21 @@ func (s *Server) setAllowConnections(ctx context.Context, r record, allow bool) 
 	return nil
 }
 
-func (s *Server) rename(ctx context.Context, r record, name string) error {
+// validName rejects labels that could be mistaken for IDs. Everything else
+// is allowed: the label is never a Postgres identifier.
+func validName(name string) error {
 	if name == "" {
 		return badRequest("name must not be empty")
+	}
+	if strings.HasPrefix(name, idPrefix) {
+		return badRequest("names may not start with %q; that is the ID namespace", idPrefix)
+	}
+	return nil
+}
+
+func (s *Server) rename(ctx context.Context, r record, name string) error {
+	if err := validName(name); err != nil {
+		return err
 	}
 	if _, err := s.pool.Exec(ctx, `UPDATE ghost.databases SET name = $2 WHERE id = $1`, r.ID, name); err != nil {
 		if isUniqueViolation(err) {
