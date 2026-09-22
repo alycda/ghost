@@ -132,6 +132,23 @@ func (s *Server) create(ctx context.Context, name string, template *record) (rec
 	source := "template1"
 	if template != nil {
 		source = template.Name
+		// The copy needs the source free of sessions for its whole duration.
+		// Ending them is not enough on its own: a reconnecting pool is back
+		// before CREATE DATABASE looks. So the source refuses connections
+		// until the copy is done, then goes back to how it was.
+		if template.AllowConn {
+			if err := s.setAllowConnectionsRaw(ctx, template.ID, false); err != nil {
+				undo()
+				return record{}, err
+			}
+			defer func() {
+				restore, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+				defer cancel()
+				if err := s.setAllowConnectionsRaw(restore, template.ID, true); err != nil {
+					s.log.Error("source database left refusing connections after fork", "database", template.ID, "error", err.Error())
+				}
+			}()
+		}
 		if err := s.terminateSessions(ctx, template.ID); err != nil {
 			undo()
 			return record{}, err
@@ -199,9 +216,8 @@ func (s *Server) setAllowConnections(ctx context.Context, r record, allow bool) 
 	if !r.Exists {
 		return notFound("database %q has no Postgres database behind it", r.Name)
 	}
-	if _, err := s.pool.Exec(ctx, fmt.Sprintf("ALTER DATABASE %s WITH ALLOW_CONNECTIONS %t",
-		pgx.Identifier{r.ID}.Sanitize(), allow)); err != nil {
-		return fmt.Errorf("setting allow_connections on %s: %w", r.ID, err)
+	if err := s.setAllowConnectionsRaw(ctx, r.ID, allow); err != nil {
+		return err
 	}
 	status := api.DatabaseStatusRunning
 	if !allow {
@@ -237,6 +253,14 @@ func (s *Server) rename(ctx context.Context, r record, name string) error {
 			return conflict("a database named %q already exists", name)
 		}
 		return fmt.Errorf("renaming %s: %w", r.ID, err)
+	}
+	return nil
+}
+
+func (s *Server) setAllowConnectionsRaw(ctx context.Context, id string, allow bool) error {
+	if _, err := s.pool.Exec(ctx, fmt.Sprintf("ALTER DATABASE %s WITH ALLOW_CONNECTIONS %t",
+		pgx.Identifier{id}.Sanitize(), allow)); err != nil {
+		return fmt.Errorf("setting allow_connections on %s: %w", id, err)
 	}
 	return nil
 }

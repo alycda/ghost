@@ -121,7 +121,11 @@ ghost-server
 The cluster must have TLS on (the CLI connects with `sslmode=require`). The
 server tells clients to connect to `GHOST_SERVER_PUBLIC_HOST:PORT`
 (default `127.0.0.1:5432`), which is where they reach Postgres from - the
-client end of an ssh tunnel, say. It listens on `GHOST_SERVER_LISTEN`
+client end of an ssh tunnel, say. Two things differ from the hosted service
+and are worth knowing: a fork ends every open session on the source
+database while Postgres copies it, and the CLI's `read_only` option is not
+enforced, because its only mechanism is a Timescale Cloud connection
+setting that stock Postgres ignores. It listens on `GHOST_SERVER_LISTEN`
 (default `127.0.0.1:8787`; the image sets `0.0.0.0:8787`). Every setting is
 listed in `internal/server/config.go`. `Dockerfile.server` builds an image.
 

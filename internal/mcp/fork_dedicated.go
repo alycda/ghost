@@ -56,12 +56,14 @@ A payment method must be on file.
 
 Use ghost_pricing to see compute and storage pricing.
 
-Note: forked databases may take a few minutes to start up. Use ghost_list to check the current status.`,
+Note: forked databases may take a few minutes to start up. Use ghost_list to check the current status.
+
+Against a self-hosted ghost-server, forking ends every open session on the source database for the duration of the copy.`,
 		InputSchema:  ForkDedicatedInput{}.Schema(),
 		OutputSchema: ForkDedicatedOutput{}.Schema(),
 		Annotations: &mcp.ToolAnnotations{
 			ReadOnlyHint:    false,
-			DestructiveHint: new(false),
+			DestructiveHint: new(true),
 			IdempotentHint:  false,
 			OpenWorldHint:   new(false),
 			Title:           "Fork Database as Dedicated",
