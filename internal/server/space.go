@@ -51,7 +51,9 @@ func (s *Server) GetSpace(_ context.Context, request api.GetSpaceRequestObject) 
 }
 
 // usage reports real storage and zero compute: there is no meter here, and the
-// limit is a number to display, not a quota that pauses anything.
+// limit is a number to display, not a quota that pauses anything. Overages are
+// reported as enabled because the CLI otherwise warns, after every usage
+// query, that all zero free minutes have been spent.
 func (s *Server) usage(ctx context.Context) (api.SpaceUsage, error) {
 	bytes, err := s.totalStorageBytes(ctx)
 	if err != nil {
@@ -66,7 +68,7 @@ func (s *Server) usage(ctx context.Context) (api.SpaceUsage, error) {
 		StorageLimitMib:    s.cfg.StorageLimitMiB,
 		ComputeMinutes:     0,
 		FreeComputeMinutes: 0,
-		OveragesEnabled:    false,
+		OveragesEnabled:    true,
 		CostToDate:         &zero,
 		EstimatedTotalCost: &zero,
 		BillingPeriodStart: &start,
