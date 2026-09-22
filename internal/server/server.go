@@ -69,20 +69,26 @@ func (s *Server) Handler() http.Handler {
 			writeError(w, http.StatusInternalServerError, "internal error")
 		},
 	})
-	return api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
-		BaseURL:     "/v0",
-		Middlewares: []api.MiddlewareFunc{s.requireAPIKey},
+	router := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
+		BaseURL: baseURL,
 		ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
 			writeError(w, http.StatusBadRequest, err.Error())
 		},
 	})
+	// Auth wraps the whole router, not each route: the generated per-route
+	// middleware runs after matching, so an exemption written as a path
+	// suffix would have let /spaces/x/databases/health through unauthenticated.
+	return s.recoverPanics(s.requireAPIKey(router))
 }
 
+const baseURL = "/v0"
+
 // requireAPIKey admits a request only with the configured bearer token. The
-// health check is the one exception, so a probe needs no secret.
+// health check, and only that exact path, needs no secret so a probe can run
+// without one.
 func (s *Server) requireAPIKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/health") {
+		if r.Method == http.MethodGet && r.URL.Path == baseURL+"/health" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -93,6 +99,20 @@ func (s *Server) requireAPIKey(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "missing or invalid API key")
 			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// recoverPanics turns a panicking handler into a 500 and a log line instead
+// of a dropped connection, which the CLI would report as a bare EOF.
+func (s *Server) recoverPanics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				s.log.Error("handler panicked", slog.String("method", r.Method), slog.String("path", r.URL.Path), slog.Any("panic", rec))
+				writeError(w, http.StatusInternalServerError, "internal error")
+			}
+		}()
 		next.ServeHTTP(w, r)
 	})
 }
