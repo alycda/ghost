@@ -103,6 +103,26 @@ ghost tutorial
 
 Run `ghost [command] --help` for more information about a command.
 
+## Running your own server
+
+Ghost's hosted service is winding down. `ghost-server` (in `cmd/ghost-server`,
+see `internal/server/`) speaks the same API to a Postgres cluster of your own,
+keeping every Ghost database in that one cluster. Point the CLI at it with
+`api_url` in `~/.config/ghost/config.yaml` and set `GHOST_API_KEY` to the
+server's key; with `analytics: false`, `version_check: false` and
+`docs_mcp_url: ""` the CLI makes no other network calls.
+
+```bash
+GHOST_SERVER_API_KEY=gt_... \
+GHOST_SERVER_POSTGRES_URL='postgresql://postgres:...@127.0.0.1:5432/postgres' \
+ghost-server
+```
+
+The cluster must have TLS on (the CLI connects with `sslmode=require`). The
+server tells clients to connect to `GHOST_SERVER_PUBLIC_HOST:PORT`
+(default `127.0.0.1:5432`), which is where they reach Postgres from - the
+client end of an ssh tunnel, say. `Dockerfile.server` builds an image.
+
 ## MCP
 
 The `ghost mcp` command installs a [Model Context Protocol](https://modelcontextprotocol.io) server so AI assistants like Claude can manage and query your databases directly.
