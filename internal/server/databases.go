@@ -15,12 +15,19 @@ func (s *Server) toAPI(ctx context.Context, r record) (api.Database, error) {
 	if err != nil {
 		return api.Database{}, err
 	}
+	// Postgres is the truth about paused and running; the stored status
+	// only matters while the database does not exist yet (configuring) or no
+	// longer does (deleted). A resume whose bookkeeping failed, or a manual
+	// ALLOW_CONNECTIONS, must not leave a connectable database that every
+	// client refuses to touch.
 	status := api.DatabaseStatus(r.Status)
 	switch {
-	case !r.Exists && status != api.DatabaseStatusConfiguring && status != api.DatabaseStatusDeleted:
-		status = api.DatabaseStatusUnknown
 	case r.Exists && !r.AllowConn:
 		status = api.DatabaseStatusPaused
+	case r.Exists:
+		status = api.DatabaseStatusRunning
+	case status != api.DatabaseStatusConfiguring && status != api.DatabaseStatusDeleted:
+		status = api.DatabaseStatusUnknown
 	}
 	dbname := r.ID
 	db := api.Database{
