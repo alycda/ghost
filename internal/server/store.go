@@ -107,7 +107,12 @@ func (s *Server) create(ctx context.Context, name string, template *record) (rec
 	}
 
 	statement := "CREATE DATABASE " + pgx.Identifier{id}.Sanitize() + " OWNER " + adminRole
+	// What Postgres copies: the template's label for the client's benefit, or
+	// template1, which a plain CREATE DATABASE copies implicitly and which any
+	// other session on it makes "in use" too.
+	source := "template1"
 	if template != nil {
+		source = template.Name
 		if err := s.terminateSessions(ctx, template.ID); err != nil {
 			undo()
 			return record{}, err
@@ -118,7 +123,7 @@ func (s *Server) create(ctx context.Context, name string, template *record) (rec
 		undo()
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "55006" { // object_in_use
-			return record{}, conflict("database %q is in use; try the fork again", template.Name)
+			return record{}, conflict("database %q is in use; try again", source)
 		}
 		return record{}, fmt.Errorf("creating database %s: %w", id, err)
 	}
