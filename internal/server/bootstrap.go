@@ -99,12 +99,31 @@ CREATE TABLE IF NOT EXISTS ghost.settings (
 		s.log.Warn("adopted an existing role by resetting its password", "role", adminRole)
 	}
 
+	// Available is not enough: TimescaleDB refuses CREATE EXTENSION unless it
+	// is in shared_preload_libraries, and pg_available_extensions only lists
+	// control files. Check both, so a create never reports a plain database
+	// as one that has it.
+	var available bool
 	if err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')`).Scan(&s.timescale); err != nil {
+		`SELECT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb')`).Scan(&available); err != nil {
 		return fmt.Errorf("checking for timescaledb: %w", err)
 	}
-	if !s.timescale {
-		s.log.Info("timescaledb is not available in this cluster; databases are plain Postgres")
+	var preload string
+	if err := s.pool.QueryRow(ctx, `SHOW shared_preload_libraries`).Scan(&preload); err != nil {
+		return fmt.Errorf("reading shared_preload_libraries: %w", err)
+	}
+	preloaded := false
+	for _, lib := range strings.Split(preload, ",") {
+		if strings.TrimSpace(lib) == "timescaledb" {
+			preloaded = true
+		}
+	}
+	s.timescale = available && preloaded
+	switch {
+	case !available:
+		s.log.Info("timescaledb is not installed in this cluster; databases are plain Postgres")
+	case !preloaded:
+		s.log.Warn("timescaledb is installed but not in shared_preload_libraries; databases are plain Postgres until it is")
 	}
 	return nil
 }
