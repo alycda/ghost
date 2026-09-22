@@ -33,6 +33,10 @@ type Config struct {
 	// UserName and UserEmail are reported as the API key's creator.
 	UserName  string
 	UserEmail string
+	// AdoptExistingRole lets the server take over a tsdbadmin role it did not
+	// create by resetting its password. Off, the server refuses to start
+	// rather than lock out whoever was using that role.
+	AdoptExistingRole bool
 }
 
 const envPrefix = "GHOST_SERVER_"
@@ -61,6 +65,7 @@ func ConfigFromEnv() (Config, error) {
 		return cfg, fmt.Errorf("%sSTORAGE_LIMIT_MIB must be a non-negative integer", envPrefix)
 	}
 	cfg.StorageLimitMiB = limit
+	cfg.AdoptExistingRole = envOr("ADOPT_EXISTING_ROLE", "false") == "true"
 
 	if cfg.PostgresURL == "" {
 		return cfg, fmt.Errorf("%sPOSTGRES_URL is required", envPrefix)

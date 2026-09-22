@@ -70,7 +70,11 @@ CREATE TABLE IF NOT EXISTS ghost.settings (
 		if err != nil {
 			return err
 		}
-		if err := s.execFormatted(ctx, "CREATE ROLE "+adminRole+" LOGIN PASSWORD %L", password); err != nil {
+		verifier, err := scramVerifier(password)
+		if err != nil {
+			return err
+		}
+		if err := s.execFormatted(ctx, "CREATE ROLE "+adminRole+" LOGIN PASSWORD %L", verifier); err != nil {
 			return fmt.Errorf("creating role %s: %w", adminRole, err)
 		}
 		if err := s.storeSetting(ctx, settingAdminPassword, password); err != nil {
@@ -78,6 +82,13 @@ CREATE TABLE IF NOT EXISTS ghost.settings (
 		}
 		s.log.Info("created admin role", "role", adminRole)
 	case !passwordKnown:
+		// The role exists but this server did not create it, or the URL now
+		// points at a different maintenance database than the one holding the
+		// settings. Resetting the password would cut off whoever uses the
+		// role today, so that needs an explicit go-ahead.
+		if !s.cfg.AdoptExistingRole {
+			return fmt.Errorf("role %s exists but its password is not in ghost.settings; set %sADOPT_EXISTING_ROLE=true to reset it, or point %sPOSTGRES_URL at the database that has the settings", adminRole, envPrefix, envPrefix)
+		}
 		password, err := randomString(32)
 		if err != nil {
 			return err
@@ -85,7 +96,7 @@ CREATE TABLE IF NOT EXISTS ghost.settings (
 		if err := s.setAdminPassword(ctx, password); err != nil {
 			return err
 		}
-		s.log.Warn("role existed without a stored password; it has been reset", "role", adminRole)
+		s.log.Warn("adopted an existing role by resetting its password", "role", adminRole)
 	}
 
 	if err := s.pool.QueryRow(ctx,
@@ -132,8 +143,16 @@ func (s *Server) storeSetting(ctx context.Context, key, value string) error {
 
 // setAdminPassword changes the shared role's password and remembers it. Every
 // Ghost database in the cluster is affected, since they share the role.
+//
+// Postgres gets the SCRAM verifier, not the password: ALTER ROLE cannot take
+// bind parameters, so it travels as a plain statement, and a plain statement
+// is what log_statement and pg_stat_activity record.
 func (s *Server) setAdminPassword(ctx context.Context, password string) error {
-	if err := s.execFormatted(ctx, "ALTER ROLE "+adminRole+" WITH PASSWORD %L", password); err != nil {
+	verifier, err := scramVerifier(password)
+	if err != nil {
+		return err
+	}
+	if err := s.execFormatted(ctx, "ALTER ROLE "+adminRole+" WITH PASSWORD %L", verifier); err != nil {
 		return fmt.Errorf("setting password for %s: %w", adminRole, err)
 	}
 	return s.storeSetting(ctx, settingAdminPassword, password)
