@@ -161,6 +161,11 @@ func getConfigFile(dir string) string {
 
 func applyEnvOverrides(v *viper.Viper) {
 	v.SetEnvPrefix("GHOST")
+	// An environment variable that is set but empty counts as set, so
+	// GHOST_DOCS_MCP_URL= turns the docs proxy off the same way
+	// docs_mcp_url: "" in the config file does. Without this, viper treats an
+	// empty value as absent and the default wins.
+	v.AllowEmptyEnv(true)
 	v.AutomaticEnv()
 }
 
