@@ -136,6 +136,14 @@ func TestLifecycle(t *testing.T) {
 		}
 	})
 
+	t.Run("dedicated is refused, not downgraded", func(t *testing.T) {
+		dedicated := api.DatabaseTypeDedicated
+		resp, err := client.CreateDatabaseWithResponse(ctx, "local", api.CreateDatabaseRequest{Name: &alphaName, Type: &dedicated})
+		if err != nil || resp.StatusCode() != 501 {
+			t.Fatalf("dedicated create: %v %d", err, resp.StatusCode())
+		}
+	})
+
 	t.Run("duplicate name is a conflict", func(t *testing.T) {
 		resp, err := client.CreateDatabaseWithResponse(ctx, "local", api.CreateDatabaseRequest{Name: &alphaName})
 		if err != nil {

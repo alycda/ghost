@@ -8,6 +8,13 @@ import (
 
 const mib = 1024 * 1024
 
+// wantsDedicated is a request for the hosted service's per-instance tier.
+// Everything here is one cluster, so rather than hand over a standard
+// database while the CLI prints the size it asked for, say no.
+func wantsDedicated(t *api.DatabaseType, size *api.DatabaseSize) bool {
+	return (t != nil && *t == api.DatabaseTypeDedicated) || (size != nil && *size != "")
+}
+
 // toAPI presents a record the way the CLI expects it: the connection details
 // are the same for every database, only dbname and the label differ.
 func (s *Server) toAPI(ctx context.Context, r record) (api.Database, error) {
@@ -73,6 +80,9 @@ func (s *Server) CreateDatabase(ctx context.Context, request api.CreateDatabaseR
 		if request.Body.ShareToken != nil && *request.Body.ShareToken != "" {
 			return api.CreateDatabasedefaultJSONResponse{Body: unsupported("creating from a share"), StatusCode: 501}, nil
 		}
+		if wantsDedicated(request.Body.Type, request.Body.Size) {
+			return api.CreateDatabasedefaultJSONResponse{Body: unsupported("a dedicated database"), StatusCode: 501}, nil
+		}
 		if request.Body.Name != nil {
 			name = *request.Body.Name
 		}
@@ -128,8 +138,13 @@ func (s *Server) ForkDatabase(ctx context.Context, request api.ForkDatabaseReque
 		return api.ForkDatabasedefaultJSONResponse{Body: body, StatusCode: status}, err
 	}
 	var name string
-	if request.Body != nil && request.Body.Name != nil {
-		name = *request.Body.Name
+	if request.Body != nil {
+		if wantsDedicated(request.Body.Type, request.Body.Size) {
+			return api.ForkDatabasedefaultJSONResponse{Body: unsupported("a dedicated fork"), StatusCode: 501}, nil
+		}
+		if request.Body.Name != nil {
+			name = *request.Body.Name
+		}
 	}
 	if name == "" {
 		name = source.Name + "-fork"
