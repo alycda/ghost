@@ -74,3 +74,38 @@ func (e *Error) Error() string {
 	}
 	return "unknown error"
 }
+
+// Database returns the plain Database inside a DatabaseWithUsage. One place
+// for the conversion, so a field added to the schema cannot be dropped by a
+// hand-written copy: the function-tool manager did exactly that with dbname.
+func (d DatabaseWithUsage) Database() Database {
+	return Database{
+		Dbname:     d.Dbname,
+		Host:       d.Host,
+		ID:         d.ID,
+		Name:       d.Name,
+		Password:   d.Password,
+		Port:       d.Port,
+		Size:       d.Size,
+		Status:     d.Status,
+		StorageMib: d.StorageMib,
+		Type:       d.Type,
+	}
+}
+
+// WithUsage is the inverse, for a server that lists databases.
+func (d Database) WithUsage(computeMinutes *int64) DatabaseWithUsage {
+	return DatabaseWithUsage{
+		ComputeMinutes: computeMinutes,
+		Dbname:         d.Dbname,
+		Host:           d.Host,
+		ID:             d.ID,
+		Name:           d.Name,
+		Password:       d.Password,
+		Port:           d.Port,
+		Size:           d.Size,
+		Status:         d.Status,
+		StorageMib:     d.StorageMib,
+		Type:           d.Type,
+	}
+}

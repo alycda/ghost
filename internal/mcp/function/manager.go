@@ -355,17 +355,7 @@ func listDatabases(ctx context.Context, client api.ClientWithResponsesInterface,
 
 	databases := make([]api.Database, len(*resp.JSON200))
 	for i, d := range *resp.JSON200 {
-		databases[i] = api.Database{
-			Host:       d.Host,
-			ID:         d.ID,
-			Name:       d.Name,
-			Password:   d.Password,
-			Port:       d.Port,
-			Size:       d.Size,
-			Status:     d.Status,
-			StorageMib: d.StorageMib,
-			Type:       d.Type,
-		}
+		databases[i] = d.Database()
 	}
 	return databases, nil
 }

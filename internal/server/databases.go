@@ -52,10 +52,7 @@ func (s *Server) ListDatabases(ctx context.Context, request api.ListDatabasesReq
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, api.DatabaseWithUsage{
-			ID: db.ID, Name: db.Name, Type: db.Type, Size: db.Size, Status: db.Status,
-			Host: db.Host, Port: db.Port, Dbname: db.Dbname, Password: db.Password, StorageMib: db.StorageMib,
-		})
+		out = append(out, db.WithUsage(nil))
 	}
 	return out, nil
 }
