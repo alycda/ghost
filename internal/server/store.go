@@ -111,8 +111,18 @@ func (s *Server) create(ctx context.Context, name string, template *record) (rec
 		return record{}, fmt.Errorf("reserving database %q: %w", name, err)
 	}
 
+	// undo runs when the client may already be gone (its request context
+	// cancelled), so it uses a context that survives that, drops whatever
+	// CREATE DATABASE may have left, and says so if it cannot.
 	undo := func() {
-		_, _ = s.pool.Exec(ctx, `DELETE FROM ghost.databases WHERE id = $1`, id)
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if _, err := s.pool.Exec(cleanup, "DROP DATABASE IF EXISTS "+pgx.Identifier{id}.Sanitize()+" WITH (FORCE)"); err != nil {
+			s.log.Error("could not drop half-created database", "database", id, "error", err.Error())
+		}
+		if _, err := s.pool.Exec(cleanup, `DELETE FROM ghost.databases WHERE id = $1`, id); err != nil {
+			s.log.Error("could not forget half-created database", "database", id, "error", err.Error())
+		}
 	}
 
 	statement := "CREATE DATABASE " + pgx.Identifier{id}.Sanitize() + " OWNER " + adminRole
@@ -148,6 +158,7 @@ func (s *Server) create(ctx context.Context, name string, template *record) (rec
 
 	if _, err := s.pool.Exec(ctx, `UPDATE ghost.databases SET status = $2 WHERE id = $1`,
 		id, string(api.DatabaseStatusRunning)); err != nil {
+		undo()
 		return record{}, fmt.Errorf("marking %s running: %w", id, err)
 	}
 	return s.resolve(ctx, s.cfg.SpaceID, id)
