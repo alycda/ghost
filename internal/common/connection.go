@@ -5,7 +5,20 @@ import (
 	"net/url"
 
 	"github.com/timescale/ghost/internal/api"
+	"github.com/timescale/ghost/internal/util"
 )
+
+// DatabaseName is the PostgreSQL database to connect to for a Ghost database.
+// The hosted service gave every database an instance of its own and always
+// called the database "tsdb", so the API never had to say. A server that keeps
+// several Ghost databases in one cluster names each one and reports it as
+// `dbname`; when the field is absent the old name still applies.
+func DatabaseName(database api.Database) string {
+	if name := util.Deref(database.Dbname); name != "" {
+		return name
+	}
+	return "tsdb"
+}
 
 // ConnectionStringArgs contains arguments for building a connection string.
 type ConnectionStringArgs struct {
@@ -19,7 +32,7 @@ type ConnectionStringArgs struct {
 func BuildConnectionString(args ConnectionStringArgs) (string, error) {
 	host := args.Database.Host
 	port := args.Database.Port
-	dbName := "tsdb"
+	dbName := DatabaseName(args.Database)
 
 	var userInfo string
 	if args.Password != "" {

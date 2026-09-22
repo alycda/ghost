@@ -327,6 +327,12 @@ type CreateSpaceRequest struct {
 
 // Database A Ghost database.
 type Database struct {
+	// Dbname PostgreSQL database name to connect to. Absent means `tsdb`, the
+	// name the hosted service gave every database because each one had
+	// an instance to itself. A server that keeps several databases in
+	// one cluster names each one and says so here.
+	Dbname *string `json:"dbname,omitempty"`
+
 	// Host PostgreSQL hostname for connections.
 	Host string `json:"host"`
 
@@ -393,6 +399,12 @@ type DatabaseType string
 type DatabaseWithUsage struct {
 	// ComputeMinutes Compute minutes used by this database during the current billing cycle. Only populated for `standard` databases.
 	ComputeMinutes *int64 `json:"compute_minutes,omitempty"`
+
+	// Dbname PostgreSQL database name to connect to. Absent means `tsdb`, the
+	// name the hosted service gave every database because each one had
+	// an instance to itself. A server that keeps several databases in
+	// one cluster names each one and says so here.
+	Dbname *string `json:"dbname,omitempty"`
 
 	// Host PostgreSQL hostname for connections.
 	Host string `json:"host"`

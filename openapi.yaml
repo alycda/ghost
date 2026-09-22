@@ -1729,6 +1729,13 @@ components:
         port:
           type: integer
           description: PostgreSQL port for connections.
+        dbname:
+          type: string
+          description: |
+            PostgreSQL database name to connect to. Absent means `tsdb`, the
+            name the hosted service gave every database because each one had
+            an instance to itself. A server that keeps several databases in
+            one cluster names each one and says so here.
         password:
           type: string
           nullable: true

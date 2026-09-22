@@ -43,7 +43,7 @@ func SavePassword(database api.Database, password, role string) error {
 
 	host := database.Host
 	port := strconv.Itoa(database.Port)
-	dbName := "tsdb" // TimescaleDB database name
+	dbName := DatabaseName(database)
 
 	// Remove existing entry first (if it exists)
 	if err := removePgpassEntry(pgpassPath, host, port, dbName, role); err != nil {
@@ -104,7 +104,7 @@ func GetPassword(database api.Database, role string) (string, error) {
 
 	host := database.Host
 	port := strconv.Itoa(database.Port)
-	dbName := "tsdb" // TimescaleDB database name
+	dbName := DatabaseName(database)
 
 	password := passfile.FindPassword(host, port, dbName, role)
 	if password == "" {
@@ -127,7 +127,7 @@ func RemovePgpassEntry(database api.Database, role string) error {
 
 	host := database.Host
 	port := strconv.Itoa(database.Port)
-	dbName := "tsdb" // TimescaleDB database name
+	dbName := DatabaseName(database)
 	return removePgpassEntry(pgpassPath, host, port, dbName, role)
 }
 
