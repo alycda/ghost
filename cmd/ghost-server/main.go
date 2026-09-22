@@ -44,17 +44,25 @@ func run() error {
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+	// ListenAndServe returns the moment Shutdown closes the listeners, so the
+	// drain has to be waited for explicitly or the pool is closed under the
+	// handlers still running (a create interrupted there leaves a database
+	// whose row says configuring).
+	drained := make(chan error, 1)
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = httpServer.Shutdown(shutdownCtx)
+		drained <- httpServer.Shutdown(shutdownCtx)
 	}()
 
 	logger.Info("listening", "addr", cfg.Listen, "space", cfg.SpaceID,
 		"public", fmt.Sprintf("%s:%d", cfg.PublicHost, cfg.PublicPort))
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
+	}
+	if err := <-drained; err != nil {
+		logger.Warn("shutdown did not finish cleanly", "error", err.Error())
 	}
 	return nil
 }
